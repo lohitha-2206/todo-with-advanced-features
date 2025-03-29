@@ -53,7 +53,7 @@ export const fetchTasks = async (): Promise<TaskType[]> => {
 };
 
 // Add a new task
-export const addTask = async (task: Omit<TaskType, 'id' | 'completed'>): Promise<TaskType | null> => {
+export const addTask = async (task: Omit<TaskType, "id" | "completed">): Promise<TaskType | null> => {
   const { data: session } = await supabase.auth.getSession();
   if (!session.session) return null;
   
@@ -176,7 +176,7 @@ export const fetchLabels = async (): Promise<LabelType[]> => {
 };
 
 // Add a new label
-export const addLabel = async (label: Omit<LabelType, 'id'>): Promise<LabelType | null> => {
+export const addLabel = async (label: Omit<LabelType, "id">): Promise<LabelType | null> => {
   const { data: session } = await supabase.auth.getSession();
   if (!session.session) return null;
   
