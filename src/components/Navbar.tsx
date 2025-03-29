@@ -2,12 +2,15 @@
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AddLabelDialog } from "@/components/AddLabelDialog";
 import { LabelType } from "@/types/todo";
+import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 
 interface NavbarProps {
   onAddLabel: (label: Omit<LabelType, "id">) => void;
+  onLogout: () => void;
 }
 
-export function Navbar({ onAddLabel }: NavbarProps) {
+export function Navbar({ onAddLabel, onLogout }: NavbarProps) {
   return (
     <header className="border-b py-4 px-6 bg-card">
       <div className="container mx-auto flex justify-between items-center">
@@ -22,6 +25,9 @@ export function Navbar({ onAddLabel }: NavbarProps) {
         
         <div className="flex items-center gap-4">
           <AddLabelDialog onAddLabel={onAddLabel} />
+          <Button variant="outline" size="sm" onClick={onLogout}>
+            <LogOut className="h-4 w-4 mr-1" /> Logout
+          </Button>
           <ThemeToggle />
         </div>
       </div>

@@ -1,121 +1,118 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Navbar } from "@/components/Navbar";
 import { FilterBar } from "@/components/FilterBar";
 import { AddTaskDialog } from "@/components/AddTaskDialog";
 import { TaskList } from "@/components/TaskList";
 import { TaskType, LabelType } from "@/types/todo";
-
-// Generate initial sample data
-const initialLabels: LabelType[] = [
-  { id: "label-1", name: "Work", color: "bg-blue-200" },
-  { id: "label-2", name: "Personal", color: "bg-green-200" },
-  { id: "label-3", name: "Urgent", color: "bg-red-200" },
-  { id: "label-4", name: "Low Priority", color: "bg-yellow-200" }
-];
-
-const initialTasks: TaskType[] = [
-  {
-    id: "task-1",
-    title: "Create project presentation",
-    description: "Prepare slides for the quarterly review meeting",
-    completed: false,
-    dueDate: new Date(Date.now() + 86400000 * 2).toISOString(), // 2 days from now
-    labelIds: ["label-1", "label-3"]
-  },
-  {
-    id: "task-2",
-    title: "Grocery shopping",
-    description: "Buy fruits, vegetables, and snacks for the week",
-    completed: false,
-    labelIds: ["label-2"]
-  },
-  {
-    id: "task-3",
-    title: "Read book chapter",
-    description: "Complete chapter 5 of 'Atomic Habits'",
-    completed: true,
-    labelIds: ["label-2", "label-4"]
-  }
-];
+import { fetchTasks, addTask, updateTask, deleteTask, fetchLabels, addLabel } from "@/services/supabaseService";
+import { signOut } from "@/services/authService";
 
 const Index = () => {
-  const [tasks, setTasks] = useState<TaskType[]>(() => {
-    const savedTasks = localStorage.getItem("tasks");
-    return savedTasks ? JSON.parse(savedTasks) : initialTasks;
-  });
-  
-  const [labels, setLabels] = useState<LabelType[]>(() => {
-    const savedLabels = localStorage.getItem("labels");
-    return savedLabels ? JSON.parse(savedLabels) : initialLabels;
-  });
-  
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   
-  // Save to localStorage whenever tasks or labels change
-  useEffect(() => {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-  }, [tasks]);
+  // Query tasks
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: fetchTasks
+  });
   
-  useEffect(() => {
-    localStorage.setItem("labels", JSON.stringify(labels));
-  }, [labels]);
+  // Query labels
+  const { data: labels = [], isLoading: labelsLoading } = useQuery({
+    queryKey: ['labels'],
+    queryFn: fetchLabels
+  });
+  
+  // Mutations
+  const addTaskMutation = useMutation({
+    mutationFn: (task: Omit<TaskType, "id" | "completed">) => addTask(task),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success("Task added successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to add task");
+    }
+  });
+  
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ id, task }: { id: string; task: Partial<TaskType> }) => updateTask(id, task),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success("Task updated successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update task");
+    }
+  });
+  
+  const deleteTaskMutation = useMutation({
+    mutationFn: (id: string) => deleteTask(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success("Task deleted successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to delete task");
+    }
+  });
+  
+  const addLabelMutation = useMutation({
+    mutationFn: (label: Omit<LabelType, "id">) => addLabel(label),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['labels'] });
+      toast.success("Label added successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to add label");
+    }
+  });
   
   const handleAddTask = (task: Omit<TaskType, "id" | "completed">) => {
-    const newTask: TaskType = {
-      ...task,
-      id: `task-${Date.now()}`,
-      completed: false
-    };
-    
-    setTasks(prev => [newTask, ...prev]);
-    toast.success("Task added successfully");
+    addTaskMutation.mutate(task);
   };
   
   const handleCompleteTask = (id: string) => {
-    setTasks(prev => 
-      prev.map(task => 
-        task.id === id 
-          ? { ...task, completed: !task.completed } 
-          : task
-      )
-    );
-    
-    const completedTask = tasks.find(task => task.id === id);
-    const action = completedTask?.completed ? "uncompleted" : "completed";
-    toast.success(`Task marked as ${action}`);
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+      updateTaskMutation.mutate({
+        id,
+        task: { completed: !task.completed }
+      });
+    }
   };
   
   const handleDeleteTask = (id: string) => {
-    setTasks(prev => prev.filter(task => task.id !== id));
-    toast.success("Task deleted successfully");
+    deleteTaskMutation.mutate(id);
   };
   
   const handleUpdateTask = (id: string, updatedTask: Partial<TaskType>) => {
-    setTasks(prev => 
-      prev.map(task => 
-        task.id === id 
-          ? { ...task, ...updatedTask } 
-          : task
-      )
-    );
-    toast.success("Task updated successfully");
+    updateTaskMutation.mutate({ id, task: updatedTask });
   };
   
   const handleAddLabel = (label: Omit<LabelType, "id">) => {
-    const newLabel: LabelType = {
-      ...label,
-      id: `label-${Date.now()}`
-    };
-    
-    setLabels(prev => [...prev, newLabel]);
-    toast.success("Label added successfully");
+    addLabelMutation.mutate(label);
   };
+  
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success("Logged out successfully");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to log out");
+    }
+  };
+  
+  if (tasksLoading || labelsLoading) {
+    return <div className="flex items-center justify-center h-screen">Loading tasks...</div>;
+  }
   
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar onAddLabel={handleAddLabel} />
+      <Navbar onAddLabel={handleAddLabel} onLogout={handleLogout} />
       
       <main className="flex-1 container mx-auto p-6">
         <div className="mb-6 flex items-center justify-between">
